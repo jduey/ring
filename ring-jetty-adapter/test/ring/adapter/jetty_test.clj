@@ -4,9 +4,10 @@
   (:require [clj-http.client :as http]))
 
 (defn- hello-world [request]
-  {:status  200
+  [{:status  200
    :headers {"Content-Type" "text/plain"}
-   :body    "Hello World"})
+   :body    "Hello World"}
+   request])
 
 (deftest jetty-test
   (let [server (run-jetty hello-world {:port 4347, :join? false})]
