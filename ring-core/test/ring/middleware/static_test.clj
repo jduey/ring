@@ -8,10 +8,12 @@
 (def nested-foo-html "test/ring/assets/bars/foo.html")
 (def statics ["/foo.html" "/bars/"])
 
-(def app (wrap-static (constantly {:body :dynamic}) public-dir statics))
+(def app (wrap-static (fn [req]
+                        [{:body :dynamic} req])
+                      public-dir statics))
 
 (defn app-response-body [uri]
-  (:body (app {:request-method :get :uri uri})))
+  (:body (first (app {:request-method :get :uri uri}))))
 
 (deftest test-wrap-static-smoke
   (is (= (File. foo-html)        (app-response-body "/foo.html")))
