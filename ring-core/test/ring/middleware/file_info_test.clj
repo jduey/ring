@@ -26,7 +26,7 @@
     {"txt" "custom/type"}))
 
 (deftest wrap-file-info-non-file-response
-  (is (= {:headers {} :body "body"} (non-file-app {}))))
+  (is (= {:headers {} :body "body"} (first (non-file-app {})))))
 
 (deftest wrap-file-info-known-file-response
   (with-last-modified [known-file 1263506400]
@@ -34,7 +34,7 @@
                       "Content-Length" "6"
                       "Last-Modified"  "Thu, 14 Jan 2010 22:00:00 +0000"}
             :body    known-file}
-           (known-file-app {:headers {}})))))
+           (first (known-file-app {:headers {}}))))))
 
 (deftest wrap-file-info-unknown-file-response
   (with-last-modified [unknown-file 1263506400]
@@ -42,7 +42,7 @@
                       "Content-Length" "7"
                       "Last-Modified"  "Thu, 14 Jan 2010 22:00:00 +0000"}
             :body    unknown-file}
-           (unknown-file-app {:headers {}})))))
+           (first (unknown-file-app {:headers {}}))))))
 
 (deftest wrap-file-info-custom-mime-types
   (with-last-modified [known-file 0]
@@ -50,7 +50,7 @@
                       "Content-Length" "6"
                       "Last-Modified"  "Thu, 01 Jan 1970 00:00:00 +0000"}
             :body known-file}
-           (custom-type-app {:headers {}})))))
+           (first (custom-type-app {:headers {}}))))))
 
 (deftest wrap-file-info-if-modified-since-hit
   (with-last-modified [known-file 1263506400]
@@ -59,8 +59,9 @@
                       "Content-Length" "0"
                       "Last-Modified"  "Thu, 14 Jan 2010 22:00:00 +0000"}
             :body    ""}
-           (known-file-app
-             {:headers {"if-modified-since" "Thu, 14 Jan 2010 22:00:00 +0000" }})))))
+           (first 
+             (known-file-app
+               {:headers {"if-modified-since" "Thu, 14 Jan 2010 22:00:00 +0000" }}))))))
 
 (deftest wrap-file-info-if-modified-miss
   (with-last-modified [known-file 1263506400]
@@ -68,5 +69,6 @@
                       "Content-Length" "6"
                       "Last-Modified" "Thu, 14 Jan 2010 22:00:00 +0000"}
             :body    known-file}
-           (known-file-app
-             {:headers {"if-modified-since" "Wed, 13 Jan 2010 22:00:00 +0000"}})))))
+           (first
+             (known-file-app
+               {:headers {"if-modified-since" "Wed, 13 Jan 2010 22:00:00 +0000"}}))))))
