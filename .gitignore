@@ -5,3 +5,5 @@ ring.jar
 ring-standalone.jar
 pom.xml
 autodoc
+notes.txt
+*.swp
