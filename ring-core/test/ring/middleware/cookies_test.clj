@@ -1,80 +1,77 @@
 (ns ring.middleware.cookies-test
   (:use clojure.test
+        clojure.contrib.monads
+        ring.core
         ring.middleware.cookies))
 
+(def cookies-wrapper (wrap-cookies (fetch-val :cookies)))
+
 (deftest wrap-cookies-basic-cookie
-  (let [req  {:headers {"cookie" "a=b"}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "b"}} resp))))
+  (is (= {"a" {:value "b"}} 
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=b"}}))))
 
 (deftest wrap-cookies-multiple-cookies
-  (let [req  {:headers {"cookie" "a=b; c=d,e=f"}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "b"}, "c" {:value "d"}, "e" {:value "f"}}
-           resp))))
+  (is (= {"a" {:value "b"}, "c" {:value "d"}, "e" {:value "f"}}
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=b; c=d,e=f"}}))))
 
 (deftest wrap-cookies-quoted-cookies
-  (let [req  {:headers {"cookie" "a=\"b=c;e=f\""}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "b=c;e=f"}}
-           resp))))
+  (is (= {"a" {:value "b=c;e=f"}}
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=\"b=c;e=f\""}}))))
 
 (deftest wrap-cookies-escaped-quotes
-  (let [req  {:headers {"cookie" "a=\"\\\"b\\\"\""}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "\"b\""}}
-           resp))))
+  (is (= {"a" {:value "\"b\""}}
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=\"\\\"b\\\"\""}}))))
 
 (deftest wrap-cookies-extra-attrs
-  (let [req  {:headers {"cookie" "a=b;$Path=\"/\";$Domain=localhost"}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "b", :path "/", :domain "localhost"}}
-           resp))))
+  (is (= {"a" {:value "b", :path "/", :domain "localhost"}}
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=b;$Path=\"/\";$Domain=localhost"}}))))
 
+;; This test originally depended on the fact that there used to be
+;; no difference between requests and responses. They were both
+;; passed indiscriminately to the next stage. The call to 
+;; fetch-state duplicates that behavior.
 (deftest wrap-cookies-set-basic-cookie
-  (let [handler (constantly {:cookies {"a" "b"}})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=b")}
-           (:headers resp)))))
+   (is (= {:headers {"Set-Cookie" (list "a=b")}}
+          (run-ring (wrap-cookies (fetch-state))
+                    {:cookies {"a" "b"}}))))
 
 (deftest wrap-cookies-set-multiple-cookies
-  (let [handler (constantly {:cookies {"a" "b", "c" "d"}})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=b" "c=d")}
-           (:headers resp)))))
+  (is (= {:headers {"Set-Cookie" (list "a=b" "c=d")}}
+         (run-ring (wrap-cookies (fetch-state))
+                   {:cookies {"a" "b", "c" "d"}}))))
 
 (deftest wrap-cookies-set-keyword-cookie
-  (let [handler (constantly {:cookies {:a "b"}})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=b")}
-           (:headers resp)))))
+  (is (= {:headers {"Set-Cookie" (list "a=b")}}
+         (run-ring (wrap-cookies (fetch-state))
+                   {:cookies {:a "b"}}))))
 
 (deftest wrap-cookies-set-extra-attrs
-  (let [cookies {"a" {:value "b", :path "/", :secure true}}
-        handler (constantly {:cookies cookies})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=b;Path=/;Secure")}
-           (:headers resp)))))
+  (is (= {:headers {"Set-Cookie" (list "a=b;Path=/;Secure")}}
+         (run-ring (wrap-cookies (fetch-state))
+                   {:cookies {"a" {:value "b", :path "/", :secure true}}}))))
 
 (deftest wrap-cookies-always-assocs-map
-  (let [req  {:headers {}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {} resp))))
+  (is (= {}
+         (run-ring cookies-wrapper
+                   {:headers {}}))))
 
 (deftest wrap-cookies-read-urlencoded
-  (let [req  {:headers {"cookie" "a=hello+world"}}
-        resp ((wrap-cookies :cookies) req)]
-    (is (= {"a" {:value "hello world"}} resp))))
+  (is (= {"a" {:value "hello world"}} 
+         (run-ring cookies-wrapper
+                   {:headers {"cookie" "a=hello+world"}}))))
 
 (deftest wrap-cookies-set-urlencoded-cookie
-  (let [handler (constantly {:cookies {"a" "hello world"}})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=hello+world")}
-           (:headers resp)))))
+  (is (= {:headers {"Set-Cookie" (list "a=hello+world")}}
+         (run-ring (wrap-cookies (fetch-state))
+                   {:cookies {"a" "hello world"}}))))
 
 (deftest wrap-cookies-keep-set-cookies-intact
-  (let [handler (constantly {:headers {"Set-Cookie" (list "a=b")}
-                             :cookies {:c "d"}})
-        resp    ((wrap-cookies handler) {})]
-    (is (= {"Set-Cookie" (list "a=b" "c=d")}
-           (:headers resp)))))
+  (is (= {:headers {"Set-Cookie" (list "a=b" "c=d")}}
+         (run-ring (wrap-cookies (fetch-state))
+                   {:headers {"Set-Cookie" (list "a=b")}
+                    :cookies {:c "d"}}))))

@@ -1,5 +1,7 @@
 (ns ring.middleware.cookies
   "Cookie manipulation."
+  (:use clojure.contrib.monads
+        ring.core)
   (:require [ring.util.codec :as codec]))
 
 (def ^{:private true
@@ -70,16 +72,17 @@
           (merge cookie-map cookie)))
         cookie-map)))
 
-(defn- parse-cookies
+(defn parse-cookies
   "Parse the cookies from a request map."
   [request]
   (if-let [cookie (get-in request [:headers "cookie"])]
-    (-> cookie
-      parse-cookie-header
-      normalize-quoted-strs
-      to-cookie-map
-      (dissoc "$Version"))
-    {}))
+    [(-> cookie
+       parse-cookie-header
+       normalize-quoted-strs
+       to-cookie-map
+       (dissoc "$Version"))
+    request]
+    [{} request]))
 
 (defn- write-value
   "Write the main cookie value."
@@ -121,14 +124,27 @@
                (write-cookies cookies))
     response))
 
+(defn request-cookies [request]
+  (if (request :cookies)
+    [(request :cookies) request]
+    (let [new-cookies (first (parse-cookies request))]
+      [new-cookies (assoc request :cookies new-cookies)])))
+
+(defn response-cookies [response cookies]
+  (update-in response
+             [:headers "Set-Cookie"]
+             concat
+             (write-cookies cookies)))
+
 (defn wrap-cookies
   "Parses the cookies in the request map, then assocs the resulting map
   to the :cookies key on the request."
   [handler]
-  (fn [request]
-    (let [request (if (request :cookies)
-                    request
-                    (assoc request :cookies (parse-cookies request)))]
-      (-> (handler request)
-        (set-cookies)
-        (dissoc :cookies)))))
+  (domonad ring-m
+           [_ request-cookies
+            resp handler]
+           (-> resp
+             (set-cookies)
+             (dissoc :cookies))))
+
+

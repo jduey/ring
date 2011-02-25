@@ -49,5 +49,5 @@
                                      (response :session-cookie-attrs)
                                      {:value sess-key*})}]
                 (if (and sess-key* (not= sess-key sess-key*))
-                  (assoc response :cookies (merge (response :cookies) cookie))
-                  response)))))))))
+                  [(assoc response :cookies (merge (response :cookies) cookie)) request]
+                  [response request])))))))))

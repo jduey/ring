@@ -49,7 +49,7 @@
                           (constantly nil))
         handler (constantly {:session {:foo "bar"}})
         handler (wrap-session handler {:store store})
-        response (handler {:cookies {}})]
+        response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
            ["ring-session=foo%3Abar;Path=/"]))))
 
@@ -59,7 +59,7 @@
                           (constantly "deleted"))
         handler (constantly {:session nil})
         handler (wrap-session handler {:store store})
-        response (handler {:cookies {"ring-session" {:value "foo:bar"}}})]
+        response (first (handler {:cookies {"ring-session" {:value "foo:bar"}}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
            ["ring-session=deleted;Path=/"]))))
 
@@ -69,7 +69,7 @@
                           (constantly nil))
 	handler (constantly {:session {:foo "bar"}})
 	handler (wrap-session handler {:store store :cookie-attrs {:max-age 5}})
-	response (handler {:cookies {}})]
+	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
 	   ["ring-session=foo%3Abar;Path=/;Max-Age=5"]))))
 
@@ -80,7 +80,7 @@
 	handler (constantly {:session {:foo "bar"}
 			     :cookies {"cookie2" "value2"}})
 	handler (wrap-session handler {:store store :cookie-attrs {:max-age 5}})
-	response (handler {:cookies {}})]
+	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
 	   ["ring-session=foo%3Abar;Path=/;Max-Age=5" "cookie2=value2"]))))
 
@@ -90,7 +90,7 @@
                           (constantly nil))
 	handler (constantly {:session {:foo "bar"}})
 	handler (wrap-session handler {:store store, :root "/foo"})
-	response (handler {:cookies {}})]
+	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
 	   ["ring-session=foo%3Abar;Path=/foo"]))))
 
@@ -101,7 +101,7 @@
 	handler (constantly {:session {:foo "bar"}
                              :session-cookie-attrs {:max-age 5}})
 	handler (wrap-session handler {:store store})
-	response (handler {:cookies {}})]
+	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
 	   ["ring-session=foo%3Abar;Max-Age=5;Path=/"]))))
 
