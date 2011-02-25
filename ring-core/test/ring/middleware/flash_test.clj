@@ -4,8 +4,9 @@
 
 (deftest flash-is-added-to-session
   (let [message  {:error "Could not save"}
-        handler  (wrap-flash (constantly {:flash message}))
-        response (handler {:session {}})]
+        handler  (wrap-flash (fn [req]
+                               [{:flash message} req]))
+        response (first (handler {:session {}}))]
     (is (= (:session response) {:_flash message}))))
 
 (deftest flash-is-retrieved-from-session
@@ -13,26 +14,29 @@
         handler  (wrap-flash
                    (fn [request]
                      (is (= (:flash request) message))
-                     {}))]
+                     [{} request]))]
     (handler {:session {:_flash message}})))
 
 (deftest flash-is-removed-after-read
   (let [message  {:error "Could not save"}
-        handler  (wrap-flash (constantly {:session {:foo "bar"}}))
-        response (handler {:session {:_flash message}})]
+        handler  (wrap-flash (fn [req]
+                               [{:session {:foo "bar"}} req]))
+        response (first (handler {:session {:_flash message}}))]
     (is (nil? (:flash response)))
     (is (= (:session response) {:foo "bar"}))))
 
 (deftest flash-doesnt-wipe-session
   (let [message  {:error "Could not save"}
-        handler  (wrap-flash (constantly {:flash message}))
-        response (handler {:session {:foo "bar"}})]
+        handler  (wrap-flash (fn [req]
+                               [{:flash message} req]))
+        response (first (handler {:session {:foo "bar"}}))]
     (is (= (:session response) {:foo "bar", :_flash message}))))
 
 (deftest flash-overwrites-nil-session
   (let [message  {:error "Could not save"}
-        handler  (wrap-flash (constantly {:flash message, :session nil}))
-        response (handler {:session {:foo "bar"}})]
+        handler  (wrap-flash (fn [req]
+                               [{:flash message, :session nil} req]))
+        response (first (handler {:session {:foo "bar"}}))]
     (is (= (:session response) {:_flash message}))))
 
 (deftest flash-not-except-on-nil-response
