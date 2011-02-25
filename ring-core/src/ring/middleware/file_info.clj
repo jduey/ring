@@ -1,5 +1,7 @@
 (ns ring.middleware.file-info
   "Augment Ring File responses."
+  (:use clojure.contrib.monads
+        ring.core)
   (:require [ring.util.response :as res])
   (:import java.io.File
            (java.util Date Locale TimeZone)
@@ -96,21 +98,20 @@
   to content types that will supplement the default, built-in map."
   [app & [custom-mime-types]]
   (let [mime-types (merge base-mime-types custom-mime-types)]
-    (fn [req]
-      (let [{:keys [headers body] :as response} (app req)]
-        (if (instance? File body)
-          (let [file-type   (guess-mime-type body mime-types)
-                file-length (.length ^File body)
-                lmodified   (Date. (.lastModified ^File body))
-                response    (-> response
-                              (res/content-type file-type)
-                              (res/header "Last-Modified"
-                                      (.format (make-http-format) lmodified)))]
-            (if (not-modified-since? req lmodified)
-              (-> response (res/status 304)
-                           (res/header "Content-Length" 0)
-                           (assoc :body "")
-                           (vector req))
-              (-> response (res/header "Content-Length" file-length)
-                           (vector req))))
-          [response req])))))
+    (do-ring-m
+      [{:keys [headers body] :as response} app
+       req (fetch-state)]
+      (if (instance? File body)
+        (let [file-type   (guess-mime-type body mime-types)
+              file-length (.length ^File body)
+              lmodified   (Date. (.lastModified ^File body))
+              response    (-> response
+                            (res/content-type file-type)
+                            (res/header "Last-Modified"
+                                        (.format (make-http-format) lmodified)))]
+          (if (not-modified-since? req lmodified)
+            (-> response (res/status 304)
+              (res/header "Content-Length" 0)
+              (assoc :body ""))
+            (-> response (res/header "Content-Length" file-length))))
+        response))))

@@ -1,7 +1,6 @@
 (ns ring.middleware.cookies
   "Cookie manipulation."
-  (:use clojure.contrib.monads
-        ring.core)
+  (:use ring.core)
   (:require [ring.util.codec :as codec]))
 
 (def ^{:private true
@@ -140,11 +139,11 @@
   "Parses the cookies in the request map, then assocs the resulting map
   to the :cookies key on the request."
   [handler]
-  (domonad ring-m
-           [_ request-cookies
-            resp handler]
-           (-> resp
-             (set-cookies)
-             (dissoc :cookies))))
+  (do-ring-m
+    [_ request-cookies
+     resp handler]
+    (-> resp
+      (set-cookies)
+      (dissoc :cookies))))
 
 

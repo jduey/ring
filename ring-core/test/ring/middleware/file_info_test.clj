@@ -3,13 +3,16 @@
         ring.middleware.file-info)
   (:import java.io.File))
 
-(def non-file-app (wrap-file-info (constantly {:headers {} :body "body"})))
+(def non-file-app (wrap-file-info (fn [req]
+                                    [{:headers {} :body "body"} req])))
 
 (def known-file (File. "test/ring/assets/plain.txt"))
-(def known-file-app (wrap-file-info (constantly {:headers {} :body known-file})))
+(def known-file-app (wrap-file-info (fn [req]
+                                      [{:headers {} :body known-file} req])))
 
 (def unknown-file (File. "test/ring/assets/random.xyz"))
-(def unknown-file-app (wrap-file-info (constantly {:headers {} :body unknown-file})))
+(def unknown-file-app (wrap-file-info (fn [req]
+                                        [{:headers {} :body unknown-file} req])))
 
 (defmacro with-last-modified 
   "Lets us use a known file modification time for tests, without permanently changing
@@ -22,7 +25,8 @@
 
 (def custom-type-app
   (wrap-file-info
-    (constantly {:headers {} :body known-file})
+    (fn [req]
+      [{:headers {} :body known-file} req])
     {"txt" "custom/type"}))
 
 (deftest wrap-file-info-non-file-response
@@ -59,7 +63,7 @@
                       "Content-Length" "0"
                       "Last-Modified"  "Thu, 14 Jan 2010 22:00:00 +0000"}
             :body    ""}
-           (first 
+           (first
              (known-file-app
                {:headers {"if-modified-since" "Thu, 14 Jan 2010 22:00:00 +0000" }}))))))
 
