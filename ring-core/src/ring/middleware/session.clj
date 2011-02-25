@@ -1,7 +1,16 @@
 (ns ring.middleware.session
   "Session manipulation."
-  (:use ring.middleware.cookies
+  (:use ring.core
+        ring.middleware.cookies
         [ring.middleware.session store memory]))
+
+(defn retrieve-session [options]
+  (fn [request]
+    (let [store        (options :store (memory-store))
+          cookie-name  (options :cookie-name "ring-session")
+          sess-key (get-in request [:cookies cookie-name :value])
+          session  (read-session store sess-key)]
+      [sess-key (assoc request :session session)])))
 
 (defn wrap-session
   "Reads in the current HTTP session map, and adds it to the :session key on
@@ -33,12 +42,10 @@
            session-root (options :root "/")
            cookie-attrs (merge (options :cookie-attrs) {:path session-root})]
       (wrap-cookies
-        (fn [request]
-          (let [sess-key (get-in request [:cookies cookie-name :value])
-                session  (read-session store sess-key)
-                request  (assoc request :session session)]
-            (if-let [response (handler request)]
-              (let [sess-key* (if (contains? response :session)
+        (do-ring-m
+          [sess-key (retrieve-session options)
+           response handler]
+          (let [sess-key* (if (contains? response :session)
                                 (if-let [session (response :session)]
                                   (write-session store sess-key session)
                                   (if sess-key
@@ -49,5 +56,5 @@
                                      (response :session-cookie-attrs)
                                      {:value sess-key*})}]
                 (if (and sess-key* (not= sess-key sess-key*))
-                  [(assoc response :cookies (merge (response :cookies) cookie)) request]
-                  [response request])))))))))
+                  (assoc response :cookies (merge (response :cookies) cookie))
+                  response)))))))

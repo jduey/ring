@@ -21,7 +21,7 @@
     (let [store   (make-store reader writer deleter)
           handler (fn [req]
                     (is (= (req :session) {:bar "foo"}))
-                    {})
+                    [{} req])
           handler (wrap-session handler {:store store})]
       (handler {:cookies {"ring-session" {:value "test"}}}))))
 
@@ -30,7 +30,7 @@
            writer  (times 1 (has-args [nil? (partial = {:foo "bar"})]))
            deleter (times never)]
     (let [store   (make-store reader writer deleter)
-          handler (constantly {:session {:foo "bar"}})
+          handler (fn [req] [{:session {:foo "bar"}} req])
           handler (wrap-session handler {:store store})]
       (handler {:cookies {}}))))
 
@@ -39,7 +39,7 @@
            writer  (times never)
            deleter (times 1 (has-args [(partial = "test")]))]
     (let [store   (make-store reader writer deleter)
-          handler (constantly {:session nil})
+          handler (fn [req] [{:session nil} req])
           handler (wrap-session handler {:store store})]
       (handler {:cookies {"ring-session" {:value "test"}}}))))
 
@@ -47,7 +47,7 @@
   (let [store (make-store (constantly {})
                           (constantly "foo:bar")
                           (constantly nil))
-        handler (constantly {:session {:foo "bar"}})
+        handler (fn [req] [{:session {:foo "bar"}} req])
         handler (wrap-session handler {:store store})
         response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
@@ -57,7 +57,7 @@
   (let [store (make-store (constantly {:foo "bar"})
                           (constantly nil)
                           (constantly "deleted"))
-        handler (constantly {:session nil})
+        handler (fn [req] [{:session nil} req])
         handler (wrap-session handler {:store store})
         response (first (handler {:cookies {"ring-session" {:value "foo:bar"}}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
@@ -67,7 +67,7 @@
   (let [store (make-store (constantly {})
                           (constantly "foo:bar")
                           (constantly nil))
-	handler (constantly {:session {:foo "bar"}})
+	handler (fn [req] [{:session {:foo "bar"}} req])
 	handler (wrap-session handler {:store store :cookie-attrs {:max-age 5}})
 	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
@@ -77,8 +77,10 @@
   (let [store (make-store (constantly {})
                           (constantly "foo:bar")
                           (constantly nil))
-	handler (constantly {:session {:foo "bar"}
-			     :cookies {"cookie2" "value2"}})
+	handler (fn [req]
+           [{:session {:foo "bar"}
+             :cookies {"cookie2" "value2"}}
+            req])
 	handler (wrap-session handler {:store store :cookie-attrs {:max-age 5}})
 	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
@@ -88,7 +90,7 @@
   (let [store (make-store (constantly {})
                           (constantly "foo:bar")
                           (constantly nil))
-	handler (constantly {:session {:foo "bar"}})
+	handler (fn [req] [{:session {:foo "bar"}} req])
 	handler (wrap-session handler {:store store, :root "/foo"})
 	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
@@ -98,8 +100,10 @@
   (let [store (make-store (constantly {})
                           (constantly "foo:bar")
                           (constantly nil))
-	handler (constantly {:session {:foo "bar"}
-                             :session-cookie-attrs {:max-age 5}})
+	handler (fn [req]
+           [{:session {:foo "bar"}
+             :session-cookie-attrs {:max-age 5}}
+            req])
 	handler (wrap-session handler {:store store})
 	response (first (handler {:cookies {}}))]
     (is (= (get-in response [:headers "Set-Cookie"])
