@@ -1,5 +1,7 @@
 (ns ring.middleware.lint
   "Lint Ring requests and responses."
+  (:use clojure.contrib.monads
+        ring.core)
   (:require [clojure.set :as set])
   (:import (java.io File InputStream)))
 
@@ -57,7 +59,8 @@
         "header values must be strings")))
 
   (lint (:body req) #(or (nil? %) (instance? InputStream %))
-    ":body must be nil or an InputStream"))
+    ":body must be nil or an InputStream")
+  [true req])
 
 (defn- check-resp
   "Validates the response, throwing an exception on violations of the spec"
@@ -79,14 +82,16 @@
 
   (lint (:body resp) #(or (nil? %) (string? %) (instance? File %)
                           (instance? InputStream %))
-    ":body must a String, File, or InputStream"))
+    ":body must a String, File, or InputStream")
+  true)
 
 (defn wrap-lint
   "Wrap an app to validate incoming requests and outgoing responses
   according to the Ring spec."
   [app]
-  (fn [req]
-    (check-req req)
-    (let [resp (app req)]
-      (check-resp resp)
-      resp)))
+  (do-ring-m
+    [_    check-req
+     resp app
+     :when (check-resp resp)]
+    resp))
+

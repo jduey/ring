@@ -22,11 +22,11 @@
   {:status 200 :headers {} :body "valid"})
 
 (def valid-response-app
-  (wrap-lint (fn [req] valid-response)))
+  (wrap-lint (fn [req] [valid-response req])))
 
 (defn constant-app
   [constant-response]
-  (wrap-lint (fn [req] constant-response)))
+  (wrap-lint (fn [req] [constant-response req])))
 
 (defn is-lint-error [f]
   (is (thrown-with-msg? Exception #"Ring lint error:.*" (f))))
@@ -39,7 +39,8 @@
        (deftest ~good-name
          (doseq [good# ~goods]
            (is (= valid-response
-                  (valid-response-app (assoc valid-request ~key good#)))
+                  (first
+                    (valid-response-app (assoc valid-request ~key good#))))
              (format "%s is a valid value for request key %s"
                (pr-str good#) ~key))))
        (deftest ~bad-name
@@ -56,7 +57,7 @@
          (doseq [good# ~goods]
            (let [response# (assoc valid-response ~key good#)
                  app#      (constant-app response#)]
-             (is (= response# (app# valid-request))
+             (is (= response# (first (app# valid-request)))
                (format "%s is a valid value for response key %s"
                  (pr-str good#) ~key)))))
        (deftest ~bad-name
