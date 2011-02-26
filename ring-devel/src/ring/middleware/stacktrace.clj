@@ -70,7 +70,7 @@
     (try
       (app req)
       (catch Exception e
-        (ex-response req e)))))
+        [(ex-response req e) req]))))
 
 (defn wrap-stacktrace
   "Wrap an app such that exceptions are caught, a corresponding stacktrace is
