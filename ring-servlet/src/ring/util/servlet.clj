@@ -117,7 +117,7 @@
     (let [request-map (-> request
                         (build-request-map)
                         (merge-servlet-keys servlet request response))]
-      (if-let [response-map (handler request-map)]
+      (if-let [[response-map _] (handler request-map)]
         (update-servlet-response response response-map)
         (throw (NullPointerException. "Handler returned nil"))))))
 

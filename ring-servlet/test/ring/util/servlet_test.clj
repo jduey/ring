@@ -75,14 +75,15 @@
                  :content-length 10
                  :character-encoding "UTF-8"
                  :body           body)
-               {:status 200, :headers {}})]
+               [{:status 200, :headers {}} r])]
         (run-servlet handler request response)))
     (testing "response"
       (letfn [(handler [r]
-               {:status  200
+               [{:status  200
                 :headers {"Content-Type" "text/plain"
                           "X-Server" "Bar"}
-                :body    nil})]
+                :body    nil}
+                r])]
         (run-servlet handler request response)
         (is (= (@response :status) 200))
         (is (= (@response :content-type) "text/plain"))
