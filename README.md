@@ -11,18 +11,21 @@ The `SPEC` file at the root of this distribution for provides a complete descrip
     (use 'ring.adapter.jetty)
 
     (defn app [req]
-      {:status  200
-       :headers {"Content-Type" "text/html"}
-       :body    "Hello World from Ring"})
+      [{:status  200
+        :headers {"Content-Type" "text/html"}
+        :body    "Hello World from Ring"}
+	  req])
 
     (run-jetty app {:port 8080})
 
 Adding simple middleware:
+	
+	(use 'ring.core)
 
     (defn wrap-upcase [app]
-      (fn [req]
-        (let [orig-resp (app req)]
-          (assoc orig-resp :body (.toUpperCase (:body orig-resp))))))
+	  (do-ring-m
+	     [resp app]
+		 (assoc resp :body (.toUpperCase (:body resp)))))
 
     (def upcase-app (wrap-upcase app))
 
