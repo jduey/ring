@@ -6,11 +6,12 @@
 
 (defn app
   [req]
-  {:status  200
-   :headers {"Content-Type" "text/html"}
-   :body    (str "<h3>Hello World from Ring</h3>"
-                 "<p>The current time is "
-                 (.format (SimpleDateFormat. "HH:mm:ss") (Date.))
-                 ".</p>")})
+  [{:status  200
+    :headers {"Content-Type" "text/html"}
+    :body    (str "<h3>Hello World from Ring</h3>"
+                  "<p>The current time is "
+                  (.format (SimpleDateFormat. "HH:mm:ss") (Date.))
+                  ".</p>")}
+   req])
 
 (run-jetty app {:port 8080})
