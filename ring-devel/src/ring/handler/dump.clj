@@ -49,7 +49,8 @@
   (println)
   (-> (response (template req))
     (status 200)
-    (content-type "text/html")))
+    (content-type "text/html")
+    (vector req)))
 
 (def ^{:private true} css "
 /*

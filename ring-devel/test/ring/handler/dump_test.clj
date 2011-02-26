@@ -14,7 +14,7 @@
 
 (deftest test-handle-dump
   (binding [*out* (java.io.StringWriter.)]
-    (let [{:keys [status]} (handle-dump post-req)]
+    (let [{:keys [status]} (first (handle-dump post-req))]
       (is (= 200 status)))
-    (let [{:keys [status]} (handle-dump get-req)]
+    (let [{:keys [status]} (first (handle-dump get-req))]
       (is (= 200 status)))))
