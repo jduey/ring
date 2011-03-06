@@ -63,6 +63,7 @@ To see a more sophisticated Ring app, run:
 * `ring.middleware.file`: Serve static files out of a public directory.
 * `ring.middleware.static`: Serve static files with specified prefixes out of a public directory.
 * `ring.middleware.file-info`: Augment response headers with info about File responses.
+* `ring.middleware.content-type`: Augment response headers with a content-type based on the file extension.
 * `ring.middleware.params`: Parse query and form params.
 * `ring.middleware.multipart-params`: Parse multipart params.
 * `ring.middleware.keyword-params`: Convert string param keys to keywords.
@@ -71,6 +72,9 @@ To see a more sophisticated Ring app, run:
 * `ring.middleware.session`: Manage user sessions. Memory and cookie session stores are available by default.
 * `ring.middleware.flash`: Adds flash message support to sessions.
 * `ring.util.response`: Generate Ring responses.
+* `ring.util.codec`: Encode and decode string data.
+* `ring.util.mime-type`: Guess the mime-type from a file extension.
+
 
 ### ring-devel
 
@@ -91,11 +95,11 @@ To see a more sophisticated Ring app, run:
 
 To include one of the above libraries in your Leiningen project, for example `ring-core`, add the following to your `:dependencies`:
 
-    [ring/ring-core "0.3.6"]
+    [ring/ring-core "0.3.7"]
 
 To include all of them, add:
 
-    [ring "0.3.6"]
+    [ring "0.3.7"]
 
 ## Development
 
