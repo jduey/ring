@@ -1,12 +1,14 @@
 # Ring
 
+This is a fork of Ring to base it on a monad.
+
 Ring is a Clojure web applications library inspired by Python's WSGI and Ruby's Rack. By abstracting the details of HTTP into a simple, unified API, Ring allows web applications to be constructed of modular components that can be shared among a variety of applications, web servers, and web frameworks.
 
-The `SPEC` file at the root of this distribution for provides a complete description of the Ring interface.
+The `SPEC` file at the root of this distribution for provides a complete description of the Ring interface. In the monadic version, this has changed, but the original SPEC file has been left unchanged.
 
 ## Synopsis
 
-"Hello World" in Ring:
+"Hello World" in Ring as a standard Clojure function:
 
     (use 'ring.adapter.jetty)
 
@@ -15,6 +17,19 @@ The `SPEC` file at the root of this distribution for provides a complete descrip
         :headers {"Content-Type" "text/html"}
         :body    "Hello World from Ring"}
 	  req])
+
+    (run-jetty app {:port 8080})
+
+The same app using the monad:
+
+    (use 'ring.adapter.jetty)
+	(use 'ring.core)
+
+	(def app
+		(m-result
+			{:status  200
+			 :headers {"Content-Type" "text/html"}
+			 :body    "Hello World from Ring"}))
 
     (run-jetty app {:port 8080})
 
@@ -30,6 +45,18 @@ Adding simple middleware:
     (def upcase-app (wrap-upcase app))
 
     (run-jetty upcase-app {:port 8080})
+
+In the original version, you would add support for cookies by wrapping a handler in the 'wrap-cookies' middleware. And then in your handler, you would look for a :cookies key in the request to read cookies and you would set a :cookies key in the response to set cookies.
+
+In the monadic version, you would not wrap your handler in the middleware. Instead you would do the following:
+
+	(def app
+	   (do-ring-m
+	      [cookies get-cookies]
+		  (let [resp {:status  200
+				      :headers {"Content-Type" "text/html"}
+				      :body    "Hello World from Ring"}]
+		      (add-cookies resp {:some-cookie "My cookie"}))))
 
 ## Quick Start
 

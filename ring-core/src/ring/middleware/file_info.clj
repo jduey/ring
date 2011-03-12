@@ -39,7 +39,8 @@
   to content types that will supplement the default, built-in map."
   [app & [mime-types]]
   (do-ring-m
-    [{:keys [headers body] :as response} (app req)]
+    [{:keys [headers body] :as response} app
+     req (fetch-state)]
     (if (instance? File body)
       (let [file-type   (guess-mime-type body mime-types)
             file-length (.length ^File body)

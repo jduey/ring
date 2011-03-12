@@ -1,5 +1,8 @@
 (ns ring.middleware.file
   "Static file serving."
+  (:use clojure.contrib.monads
+        ring.core
+        ring.router)
   (:require [ring.util.codec :as codec]
             [ring.util.response :as response])
   (:import java.io.File))
@@ -11,20 +14,18 @@
     (if-not (.exists dir)
       (throw (Exception. (format "Directory does not exist: %s" dir-path))))))
 
-(defn wrap-file
-  "Wrap an app such that the directory at the given root-path is checked for a
-  static file with which to respond to the request, proxying the request to the
-  wrapped app if such a file does not exist.
-
-  An map of options may be optionally specified. These options will be passed
-  to the ring.util.response/file-response function."
-  [app ^String root-path & [opts]]
-  (ensure-dir root-path)
+(defn static-file [^String root-path & [opts]]
   (let [opts (merge {:root root-path, :index-files? true} opts)]
-    (fn [req]
-      (if-not (= :get (:request-method req))
-        (app req)
-        (let [path (.substring (codec/url-decode (:uri req)) 1)]
-          (if-let [resp (response/file-response path opts)]
-            [resp req]
-            (app req)))))))
+    (ensure-dir root-path)
+    (do-ring-m
+      [method GET
+       uri (fetch-val :uri)
+       :let [path (.substring (codec/url-decode uri) 1)
+             resp (response/file-response path opts)]
+       :when resp]
+      resp)))
+
+(defn wrap-file [app ^String root-path & [opts]]
+  (with-monad ring-m
+              (m-plus (static-file root-path opts)
+                      app)))
