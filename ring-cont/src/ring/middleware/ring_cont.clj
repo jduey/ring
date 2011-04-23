@@ -1,5 +1,6 @@
 (ns ring.middleware.ring-cont
   (:use clojure.contrib.monads
+        [clojure.pprint :only [pprint]]
         ring.core
         [ring.middleware.cookies :only [get-cookies]])
   (:import [java.util UUID]))
@@ -51,8 +52,8 @@
    m-bind     (fn [mv f]
                 (when mv
                   (fn [c]
-                     (mv (fn [v]
-                           ((f v) c))))))
+                    (mv (fn [v]
+                          ((f v) c))))))
    m-zero     (fn [x]
                   nil)
    m-plus     (fn session-m-plus [& mvs]
@@ -75,17 +76,29 @@
       (cond
         r-r (fn [c]
               (let [[result req] r-r
-                    result (assoc-in result [:cookies "session-id"]
-                                     (get-in req [:cookies "session-id"]))]
-                [[result (fn [new-req]
-                           (c (assoc new-req ::session (::session req))))]
-                 req]))
+                    result (when result
+                             (assoc-in result [:cookies "session-id"]
+                                     (get-in req [:cookies "session-id"])))]
+                (if result
+                  [[result (fn handle-next-req [new-req]
+                             (c (assoc new-req ::session (::session req))))]
+                   req]
+                  (c req))))
         alt-result (fn [c]
-                      (alt-result req))
+                     (alt-result req))
         :else (fn [c]
                 nil)))))
 
-; repeat a session handler until it returns nil
+(defn session-seq [& handlers]
+  (fn [req]
+    (fn [c]
+      (let [seq-c (reduce (fn [next-c handler]
+                            (fn inner-c [req]
+                              ((handler req) next-c)))
+                          c
+                          (reverse handlers))]
+      (seq-c req)))))
+
 (defn session-repeat [sh]
   (fn repeated [req]
     (fn this-fn [c]
@@ -98,74 +111,49 @@
 (defn session-choose [& handlers]
   (fn [req]
     (fn [c]
-      (let [first-choice (reduce (fn [alt-result handler]
-                                   (fn [_]
-                                     ((handler (assoc-in req [::session :alternate-result]
-                                                         alt-result))
-                                        c)))
+      (let [first-choice (reduce
+                           (fn [alt-result handler]
+                             (fn [_]
+                               (let [req (assoc-in req
+                                                   [::session :alternate-result]
+                                                   alt-result)]
+                                 ((handler req) c))))
                                  (get-in req [::session :alternate-result])
                                  (reverse handlers))]
         (first-choice nil)))))
 
-(with-monad session-m
-            ; compose session handlers sequentially
-            (defn session-seq [& handlers]
-              (m-chain handlers))
-
-            ; the conditional construct
-            #_(defn web-cond [& preds-conts]
-              (fn [[context request]]
-                (let [pairs (partition 2 preds-conts)
-                      successes (filter (fn [[pred c]]
-                                          (or (= pred :else)
-                                              (pred (:app-context context) request)))
-                                        pairs)
-                      cond-c (second (first successes))]
-                  (if (nil? cond-c)
-                    (m-result [context request])
-                    (cond-c [context request])))))
-
-            ; the 'loop while condition is true' construct
-            #_(defn web-while [pred while-c]
-              (fn this-fn [[context request]]
-                (if (pred (:app-context context) request)
-                  (m-bind (while-c [context request])
-                           this-fn)
-                  (m-result [context request]))))
-
-            ; the 'loop until a condition is true' construct
-            #_(defn web-until [pred until-c]
-              (web-seq until-c
-                       (web-while (complement pred)
-                                  until-c))))
-
-; macro to define a composable web request handler function
-#_(defmacro web-fn [fn-name parms & body]
-  `(def ~fn-name
-     (session-handler (fn ~parms
-                        ~@body))))
-
 (def sessions (ref {}))
+
+(defn set-session [key value]
+  (fn [req]
+    [(get-in req [::session key]) (assoc-in req [::session key] value)]))
+
+(defn get-session [key]
+  (fn [req]
+    [(get-in req [::session key]) req]))
+
+(defn run-session [c]
+  (c (fn session-runner [req]
+       [nil req])))
 
 (defn handle-session [session-id session-app]
   (fn [req]
     (if-let [session (and session-id (get @sessions session-id))]
-      (let [result (session req)]
-        result)
+      (session req)
       (-> req
         (assoc-in [:cookies "session-id"] (str (UUID/randomUUID)))
         (assoc ::session {})
         session-app
-        run-cont))))
+        run-session))))
 
 ; top level request handler
 (defn handle-session-req [session-app]
   (do-ring-m
-    [{session-id "session-id"} (fetch-val :cookies)
-     [result next-handler] (handle-session session-id session-app)]
+    [cookies (fetch-val :cookies)
+     [result next-handler] (handle-session (get-in cookies ["session-id" :value])
+                                           session-app)]
     (do
       (when-let [session-id (get-in result [:cookies "session-id"])]
         (dosync
-          (ref-set sessions (assoc @sessions
-                                   session-id next-handler))))
+          (ref-set sessions (assoc @sessions session-id next-handler))))
       result)))

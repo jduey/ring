@@ -52,7 +52,7 @@
         [name (read-string value)]
         [name value]))))
 
-(defn- get-cookie
+(defn- get-cookie-private
   "Get a single cookie from a sequence of cookie-values"
   [[[name value] & cookie-values]]
   {name (reduce
@@ -65,7 +65,7 @@
   [values]
   (loop [values values, cookie-map {}]
     (if (seq values)
-      (let [cookie (get-cookie values)]
+      (let [cookie (get-cookie-private values)]
         (recur
           (drop (-> cookie first val count) values)
           (merge cookie-map cookie)))
@@ -82,6 +82,13 @@
        (dissoc "$Version"))
     request]
     [{} request]))
+
+(defn get-cookie
+  "Get the value of a cookie in the cookies map."
+  [cookie-key]
+  (do-ring-m
+    [{cookie cookie-key} get-cookies]
+    cookie))
 
 (defn- write-value
   "Write the main cookie value."

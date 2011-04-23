@@ -37,24 +37,24 @@
   ([handler]
     (wrap-session handler {}))
   ([handler options]
-     (let [store        (options :store (memory-store))
-           cookie-name  (options :cookie-name "ring-session")
-           session-root (options :root "/")
-           cookie-attrs (merge (options :cookie-attrs) {:path session-root})]
-      (wrap-cookies
-        (do-ring-m
-          [sess-key (retrieve-session options)
-           response handler]
-          (let [sess-key* (if (contains? response :session)
-                                (if-let [session (response :session)]
-                                  (write-session store sess-key session)
-                                  (if sess-key
-                                    (delete-session store sess-key))))
-                    response (dissoc response :session)
-                    cookie   {cookie-name
-                              (merge cookie-attrs
-                                     (response :session-cookie-attrs)
-                                     {:value sess-key*})}]
-                (if (and sess-key* (not= sess-key sess-key*))
-                  (assoc response :cookies (merge (response :cookies) cookie))
-                  response)))))))
+   (let [store        (options :store (memory-store))
+         cookie-name  (options :cookie-name "ring-session")
+         session-root (options :root "/")
+         cookie-attrs (merge (options :cookie-attrs) {:path session-root})]
+     (wrap-cookies
+       (do-ring-m
+         [sess-key (retrieve-session options)
+          response handler]
+         (let [sess-key* (if (contains? response :session)
+                           (if-let [session (response :session)]
+                             (write-session store sess-key session)
+                             (if sess-key
+                               (delete-session store sess-key))))
+               response (dissoc response :session)
+               cookie   {cookie-name
+                         (merge cookie-attrs
+                                (response :session-cookie-attrs)
+                                {:value sess-key*})}]
+           (if (and sess-key* (not= sess-key sess-key*))
+             (assoc response :cookies (merge (response :cookies) cookie))
+             response)))))))

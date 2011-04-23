@@ -1,5 +1,5 @@
 (ns ring.middleware.test-ring-cont
-  (:use ring.middleware.ring-cont)
+  (:use ring.middleware.ring-cont :reload-all)
   (:use clojure.test
         clojure.contrib.monads
         ring.core))
@@ -82,11 +82,17 @@
                    [v (fetch-val :v)]
                    {:v (* 10 v)})
                sg (session-handler g)
-               fg (with-monad session-m (m-chain [sf sg]))]
+               fg (with-monad session-m (m-chain [sf sg]))
+               h (do-ring-m
+                   [v (fetch-val :v)]
+                   nil)
+               sh (session-handler h)
+               hf (with-monad session-m (m-chain [sh sf]))]
            (is (= 9 (:v (ffirst (run-cont (fg {:v 8}))))))
-           (is (= 50 (:v (ffirst ((second (first (run-cont (fg {:v 8})))) {:v 5})))))))
+           (is (= 50 (:v (ffirst ((second (first (run-cont (fg {:v 8})))) {:v 5})))))
+           (is (= 15 (:v (ffirst (run-cont (hf {:v 14}))))))))
 
-#_(deftest test-handle-session-req
+(deftest test-handle-session-req
   (let [_ (dosync (ref-set sessions {}))
         sh (session-handler (fn [req]
                               (if (:v req)
@@ -103,29 +109,43 @@
 
 
 (deftest test-session-choose
-         (with-monad session-m
-                     (let [_ (dosync (ref-set sessions {}))
-                           f (session-handler (do-ring-m
-                                                [v (fetch-val :v)]
-                                                {:v (inc v)}))
-                           g (session-handler (do-ring-m
-                                                [v (fetch-val :v)
-                                                 :when false]
-                                                {:v :bogus}))
-                           h (session-handler (do-ring-m
-                                                [v (fetch-val :v)]
-                                                {:v (* 10 v)}))
-                           app (session-seq
-                                 (session-choose (session-seq f g)
-                                                 h)
-                                 h)
-                           [res1 _] ((handle-session-req app) {:v 1})
-                           sess-id (get-in res1 [:cookies "session-id"])
-                           [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
-                           [res3 _] ((handle-session-req app) {:v 6 :cookies {"session-id" sess-id}})]
-                       (is (= 2 (:v res1)))
-                       (is (= 10 (:v res2)))
-                       (is (= 60 (:v res3))))))
+         (let [_ (dosync (ref-set sessions {}))
+               x (session-handler (do-ring-m
+                                    [v (fetch-val :v)
+                                     :when (not= 3 v)]
+                                    {:v (inc v)}))
+               y (session-handler (do-ring-m
+                                    [v (fetch-val :v)
+                                     :when (not= 5 v)]
+                                    {:v (+ 5 v)}))
+               f (session-handler (do-ring-m
+                                    [v (fetch-val :v)]
+                                    {:v (inc v)}))
+               g (session-handler (do-ring-m
+                                    [v (fetch-val :v)
+                                     :when false]
+                                    {:v :bogus}))
+               h (session-handler (do-ring-m
+                                    [v (fetch-val :v)]
+                                    {:v (* 10 v)}))
+               simple (session-choose x
+                                      y)
+               app (session-seq
+                     (session-choose (session-seq f g)
+                                     h)
+                     h)
+               [res4 _] ((handle-session-req simple) {:v 1})
+               [res5 _] ((handle-session-req simple) {:v 3})
+               [res1 _] ((handle-session-req app) {:v 1})
+               sess-id (get-in res1 [:cookies "session-id"])
+               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
+               [res3 _] ((handle-session-req app) {:v 6 :cookies {"session-id" sess-id}})
+               ]
+           (is (= 2 (:v res4)))
+           (is (= 8 (:v res5)))
+           (is (= 2 (:v res1)))
+           (is (= 10 (:v res2)))
+           (is (= 60 (:v res3)))))
 
 (deftest test-session-repeat
          (let [_ (dosync (ref-set sessions {}))
@@ -147,11 +167,69 @@
                [res2 _] ((handle-session-req app) {:v 23 :cookies {"session-id" sess-id}})
                [res3 _] ((handle-session-req app) {:v 10 :cookies {"session-id" sess-id}})
                [res4 _] ((handle-session-req app) {:v 8 :cookies {"session-id" sess-id}})
-               [res5 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})]
+               [res5 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
+               ]
            (is (= 1 (:v res1)))
            (is (= 28 (:v res2)))
            (is (= 11 (:v res3)))
            (is (= 13 (:v res4)))
            (is (= 47 (:v res5)))))
+
+(deftest pathological
+         (let [_ (dosync (ref-set sessions {}))
+               f (session-handler (do-ring-m
+                                    [v (fetch-val :v)
+                                     :when (not= 3 v)]
+                                    {:v (inc v)}))
+               g (session-handler (do-ring-m
+                                    [v (fetch-val :v)]
+                                    (println :v v)))
+               h (session-handler (do-ring-m
+                                    [v (fetch-val :v)
+                                     :when (not= 5 v)]
+                                    {:v (+ 5 v)}))
+               last-one (session-handler (do-ring-m
+                                           [v (fetch-val :v)]
+                                           {:v 47}))
+               who-are-you (session-seq
+                             (session-handler
+                               (domonad ring-m
+                                 [v (fetch-val :v)
+                                  :when (not (= v 5))]
+                                 {:status  200
+                                  :v 2
+                                  :headers {"Content-Type" "text/html"}
+                                  :body "body"}))
+                             (session-handler
+                               (domonad ring-m
+                                 [email (fn [r] ["you" r])]
+                                 nil)))
+               authenticate (session-handler
+                              (domonad ring-m
+                                       [v (fetch-val :v)
+                                        :when (not (= v 3))]
+                                       {:v 1}))
+               set-email (session-handler
+                           (domonad ring-m
+                             [email (fetch-val :v)]
+                             {:v 50}))
+               display-info (session-handler
+                              (domonad ring-m
+                                [v (fetch-val :v)]
+                                {:v 10}))
+               app (session-seq
+                     (session-repeat authenticate)
+                     set-email
+                     (session-repeat who-are-you)
+                     display-info)
+               [res1 _] ((handle-session-req app) {:v 23})
+               sess-id (get-in res1 [:cookies "session-id"])
+               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
+               [res3 _] ((handle-session-req app) {:v 9 :cookies {"session-id" sess-id}})
+               [res4 _] ((handle-session-req app) {:v 99 :cookies {"session-id" sess-id}})
+               [res5 _] ((handle-session-req app) {:v 5 :cookies {"session-id" sess-id}})
+               ]
+           (is (= [1 50 2 2 10]
+                  (map :v [res1 res2 res3 res4 res5])))))
 
 (run-tests)
