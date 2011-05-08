@@ -86,9 +86,9 @@
 (defn get-cookie
   "Get the value of a cookie in the cookies map."
   [cookie-key]
-  (do-ring-m
-    [{cookie cookie-key} get-cookies]
-    cookie))
+  (fn [req]
+    [(get-in req [:cookies (name cookie-key) :value])
+     req]))
 
 (defn- write-value
   "Write the main cookie value."

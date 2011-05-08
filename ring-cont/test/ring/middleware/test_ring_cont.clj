@@ -68,10 +68,10 @@
                               (if (:v req)
                                 [{:body "boo"} req]
                                 nil)))]
-    (is (= {:body "boo" :cookies {"session-id" "test-session"}}
-           (ffirst (run-cont (sh {:v true :cookies {"session-id" "test-session"}})))))
+    (is (= {:body "boo" :cookies {:session-id "test-session"}}
+           (ffirst (run-cont (sh {:v true :cookies {"session-id" {:value "test-session"}}})))))
     (is (= nil
-           (ffirst (run-cont (sh {:cookies {"session-id" "test-session"}})))))))
+           (ffirst (run-cont (sh {:cookies {"session-id" {:value "test-session"}}})))))))
 
 (deftest test-m-chain
          (let [f (do-ring-m
@@ -99,10 +99,10 @@
                                 [{:body "boo"} req]
                                 [nil req])))
         [result request] ((handle-session-req sh) {:v true})
-        result-session-id (get-in result [:cookies "session-id"])
-        request-session-id (get-in request [:cookies "session-id"])]
+        result-session-id (get-in result [:cookies :session-id])
+        request-session-id (get-in request [:cookies "session-id" :value])]
     (is (= result-session-id request-session-id))
-    (is (= {:body "boo" :cookies {"session-id" result-session-id}}
+    (is (= {:body "boo" :cookies {:session-id result-session-id}}
            result))
     (is (= [result-session-id]
            (keys @sessions)))))
@@ -137,10 +137,9 @@
                [res4 _] ((handle-session-req simple) {:v 1})
                [res5 _] ((handle-session-req simple) {:v 3})
                [res1 _] ((handle-session-req app) {:v 1})
-               sess-id (get-in res1 [:cookies "session-id"])
-               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
-               [res3 _] ((handle-session-req app) {:v 6 :cookies {"session-id" sess-id}})
-               ]
+               sess-id (get-in res1 [:cookies :session-id])
+               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" {:value sess-id}}})
+               [res3 _] ((handle-session-req app) {:v 6 :cookies {"session-id" {:value sess-id}}})]
            (is (= 2 (:v res4)))
            (is (= 8 (:v res5)))
            (is (= 2 (:v res1)))
@@ -152,23 +151,25 @@
                f (session-handler (do-ring-m
                                     [v (fetch-val :v)
                                      :when (not= 3 v)]
-                                    {:v (inc v)}))
+                                    {:v (inc v)
+                                     :handler :f}))
                g (session-handler (do-ring-m
                                     [v (fetch-val :v)
                                      :when (not= 5 v)]
-                                    {:v (+ 5 v)}))
+                                    {:v (+ 5 v)
+                                     :handler :g}))
                last-one (session-handler (do-ring-m
                                            [v (fetch-val :v)]
-                                           {:v 47}))
+                                           {:v 47
+                                            :handler :last-one}))
                app (session-seq (session-repeat (session-seq f g))
                                 last-one)
                [res1 _] ((handle-session-req app) {:v 0})
-               sess-id (get-in res1 [:cookies "session-id"])
-               [res2 _] ((handle-session-req app) {:v 23 :cookies {"session-id" sess-id}})
-               [res3 _] ((handle-session-req app) {:v 10 :cookies {"session-id" sess-id}})
-               [res4 _] ((handle-session-req app) {:v 8 :cookies {"session-id" sess-id}})
-               [res5 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
-               ]
+               sess-id (get-in res1 [:cookies :session-id])
+               [res2 _] ((handle-session-req app) {:v 23 :cookies {"session-id" {:value sess-id}}})
+               [res3 _] ((handle-session-req app) {:v 10 :cookies {"session-id" {:value sess-id}}})
+               [res4 _] ((handle-session-req app) {:v 8 :cookies {"session-id" {:value sess-id}}})
+               [res5 _] ((handle-session-req app) {:v 3 :cookies {"session-id" {:value sess-id}}})]
            (is (= 1 (:v res1)))
            (is (= 28 (:v res2)))
            (is (= 11 (:v res3)))
@@ -223,13 +224,12 @@
                      (session-repeat who-are-you)
                      display-info)
                [res1 _] ((handle-session-req app) {:v 23})
-               sess-id (get-in res1 [:cookies "session-id"])
-               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" sess-id}})
-               [res3 _] ((handle-session-req app) {:v 9 :cookies {"session-id" sess-id}})
-               [res4 _] ((handle-session-req app) {:v 99 :cookies {"session-id" sess-id}})
-               [res5 _] ((handle-session-req app) {:v 5 :cookies {"session-id" sess-id}})
+               sess-id (get-in res1 [:cookies :session-id])
+               [res2 _] ((handle-session-req app) {:v 3 :cookies {"session-id" {:value sess-id}}})
+               [res3 _] ((handle-session-req app) {:v 9 :cookies {"session-id" {:value sess-id}}})
+               [res4 _] ((handle-session-req app) {:v 99 :cookies {"session-id" {:value sess-id}}})
+               [res5 _] ((handle-session-req app) {:v 5 :cookies {"session-id" {:value sess-id}}})
                ]
            (is (= [1 50 2 2 10]
                   (map :v [res1 res2 res3 res4 res5])))))
 
-(run-tests)

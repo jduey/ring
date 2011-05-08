@@ -2,7 +2,7 @@
   (:use clojure.contrib.monads
         [clojure.pprint :only [pprint]]
         ring.core
-        [ring.middleware.cookies :only [get-cookies]])
+        [ring.middleware.cookies :only [get-cookie get-cookies]])
   (:import [java.util UUID]))
 
 ; manage the history data structure so the browser back button works
@@ -36,7 +36,7 @@
                                    new-request])
           :else (fn [continuation]
                   [[(assoc-in result [:cookies "session-id"]
-                              (get-in new-request [:cookies "session-id"]))
+                              (get-in new-request [:cookies "session-id" "value"]))
                     (fn handler [future-request]
                       (let [future-request (-> future-request
                                              (assoc ::session (::session new-request))
@@ -77,8 +77,8 @@
         r-r (fn [c]
               (let [[result req] r-r
                     result (when result
-                             (assoc-in result [:cookies "session-id"]
-                                     (get-in req [:cookies "session-id"])))]
+                             (assoc-in result [:cookies :session-id]
+                                     (get-in req [:cookies "session-id" :value])))]
                 (if result
                   [[result (fn handle-next-req [new-req]
                              (c (assoc new-req ::session (::session req))))]
@@ -141,7 +141,7 @@
     (if-let [session (and session-id (get @sessions session-id))]
       (session req)
       (-> req
-        (assoc-in [:cookies "session-id"] (str (UUID/randomUUID)))
+        (assoc-in [:cookies "session-id" :value] (str (UUID/randomUUID)))
         (assoc ::session {})
         session-app
         run-session))))
@@ -149,11 +149,12 @@
 ; top level request handler
 (defn handle-session-req [session-app]
   (do-ring-m
-    [cookies (fetch-val :cookies)
-     [result next-handler] (handle-session (get-in cookies ["session-id" :value])
-                                           session-app)]
+    [session-id (get-cookie :session-id)
+     cookies (fetch-val :cookies)
+     [result next-handler] (handle-session session-id session-app)]
     (do
-      (when-let [session-id (get-in result [:cookies "session-id"])]
+      (when-let [session-id (get-in result [:cookies :session-id])]
         (dosync
           (ref-set sessions (assoc @sessions session-id next-handler))))
       result)))
+
